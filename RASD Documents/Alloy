@@ -1,0 +1,135 @@
+open util/time
+open util/integer
+
+abstract sig Bool {}
+one sig True extends Bool {}
+one sig False extends Bool {}
+one sig Uncertain extends Bool {}
+
+sig Location {
+	latitude: one Int,
+	longitude: one Int
+}
+
+sig Image{}
+
+sig ViolationType{
+	typeName: one String,
+	suggestion: one String
+}
+
+abstract sig User {
+	fiscale: one String,
+	name: one String,
+	surname: one String,
+	password: one String
+}
+
+sig RegularUser extends User {
+	mailAddress: one String,
+	location: one Location
+}
+
+sig AuthorityUser extends User {
+	mailAddress: one String
+}
+
+sig Violation {
+	id: one String,
+	type : one ViolationType,
+	location: one Location,
+	scene: one Image,
+	carPlate: one String,
+	validation: Int,
+	isApproved: one Bool
+}{
+	validation =< 3 and validation >= 0
+	validation < 3 implies isApproved != True
+	isApproved = True implies validation = 3
+}
+
+sig UnsafeArea {
+	location: one Location,
+	type: one ViolationType
+}
+
+one sig HeatMap {
+	locations: set Location
+}
+
+
+
+one sig InterventionMap {
+	unsafeAreas: set UnsafeArea
+}
+
+fact fiscaleUniqueness {
+	no disjoint f1,f2: User | f1.fiscale = f2.fiscale
+}
+
+fact idUniqueness {
+	no disjoint i1,i2: Violation | i1.id = i2.id
+}
+
+fact imageUniqueness {
+	no disjoint i1,i2: Violation | i1.scene = i2.scene
+}
+
+fact unsafeAreaUniqueness {
+	no disjoint u1,u2: UnsafeArea | u1.location = u2.location
+}
+
+fact typeUniqueness {
+	no disjoint t1,t2: ViolationType | t1.typeName = t2.typeName
+}
+
+fact areaToViolation {
+	all ua: UnsafeArea | all loc: ua.type | some v: Violation | loc = v.type
+}
+
+fact mailDifference {
+	no disjoint au: AuthorityUser, ru: RegularUser | au.mailAddress = ru.mailAddress
+}
+
+fact heatMapLocation {
+	all hm: HeatMap |  all loc: hm.locations | some v: Violation | loc = v.location
+}
+
+pred isViolationPending[v: Violation] {
+	v.validation = 3
+	v.isApproved = Uncertain
+}
+
+pred isViolationBeingValidated[v: Violation] {
+	v.validation < 3
+	v.isApproved = Uncertain
+}
+
+pred isViolationApproved[v: Violation] {
+	v.validation = 3
+	v.isApproved = True
+}
+
+assert violationStatus{
+all v: Violation | 	v.isApproved != False => ( isViolationPending[v] or isViolationBeingValidated[v] or isViolationApproved[v])
+}
+
+pred show {
+#Violation = 3
+#ViolationType = 2
+#RegularUser = 2
+#AuthorityUser = 1
+#Image = 3
+#Location = 5
+#UnsafeArea = 3
+#HeatMap = 1
+#InterventionMap = 1
+some hm: HeatMap | #hm.locations > 1
+some im: InterventionMap |  #im.unsafeAreas > 1
+some v: Violation | v.isApproved = True
+
+}
+
+check violationStatus
+run show for 6 but 7 Int, exactly 6 String
+
